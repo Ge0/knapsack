@@ -28,7 +28,13 @@ def knapsack01(max_investment, shares):
     else:
         return max(shares[-1].performance + knapsack01(max_investment - shares[-1].price, shares[:-1]), knapsack01(max_investment, shares[:-1]))
     
-    
+
+def compute_standard_deviation(collection):
+    count = len(collection)
+    mean = sum(collection) / count
+    variance = sum((element - mean)**2 for element in collection) / count
+    return math.sqrt(variance)
+
 # https://medium.com/swlh/dynamic-programming-0-1-knapsack-python-code-222e607a2e8
 def knapsack02(max_investment, shares):
     max_investment_cts = max_investment * 100
@@ -58,6 +64,10 @@ def knapsack02(max_investment, shares):
 def get_max_performance(shares, max_amount):
     start = time.time()
     # Ici on trie les actions de la plus performante à la moins performante selon leurs rendement
+
+    std = compute_standard_deviation([*map(lambda share: share.performance, shares)])
+
+    shares = list(filter(lambda share: share.performance > std, shares))
     sorted_shares = sorted(shares, key=lambda share: share.price)
     max_performance, best_shares = knapsack02(max_amount, sorted_shares)
     print(f"Performance maximale {max_performance}")
