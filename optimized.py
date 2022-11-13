@@ -19,56 +19,78 @@ def read_csv_file(csv_filename): #Recup des valeurs du fichier.csv indiqué en e
             shares.append(share)
     return shares
 
+
+def knapsack01(max_investment, shares):
+    if max_investment == 0 or not shares:
+        return 0
+    if shares[-1].price > max_investment:
+        return knapsack01(max_investment, shares[:-1])
+    else:
+        return max(shares[-1].performance + knapsack01(max_investment - shares[-1].price, shares[:-1]), knapsack01(max_investment, shares[:-1]))
+    
+
 def compute_standard_deviation(collection):
     count = len(collection)
     mean = sum(collection) / count
     variance = sum((element - mean)**2 for element in collection) / count
     return math.sqrt(variance)
-    
+
+# https://medium.com/swlh/dynamic-programming-0-1-knapsack-python-code-222e607a2e8
+def knapsack02(max_investment, shares):
+    max_investment_cts = max_investment * 100
+    results = [[0 for _ in range(max_investment_cts + 1)] for _ in range(len(shares) + 1)]
+    shares_list = [[list() for _ in  range(max_investment_cts + 1)] for _ in range(len(shares) + 1)]
+    for i in range(len(shares) + 1):
+        for investment in range(max_investment_cts + 1):
+            price_cts = round(shares[i-1].price * 100)
+            if price_cts <= 0:
+                continue
+            if i == 0 or investment == 0:
+                results[i][investment] = 0
+                shares_list[i][investment] = []
+            elif price_cts <= investment:
+                if shares[i-1].performance + results[i-1][investment - price_cts] > results[i-1][investment]:
+                    results[i][investment] = shares[i-1].performance + results[i-1][investment - price_cts]
+                    shares_list[i][investment] = [shares[i-1]] + shares_list[i-1][investment - price_cts]
+                else:
+                    results[i][investment] = results[i-1][investment]
+                    shares_list[i][investment] = list(shares_list[i-1][investment])
+            else:
+                results[i][investment] = results[i-1][investment]
+                shares_list[i][investment] = list(shares_list[i-1][investment])
+    return results[len(shares)][max_investment_cts], shares_list[len(shares)][max_investment_cts]
+
+
+def greedy_algorithm(investment, shares):
+    value = 0
+    buylist = list()
+    for share in shares:
+        if share.price <= investment:
+            investment -= share.price
+            value += share.performance
+            buylist.append(share)
+    return value, buylist
+        
+
 
 def get_max_performance(shares, max_amount):
     start = time.time()
-    std = compute_standard_deviation([*map(lambda share: share.performance, shares)])
-    print(f"Ecart type des performances : {std}")
-    performances = list(filter(lambda share: share.performance > std, shares))
-    # Ici on trie les actions de la plus performante à la moins performante selon leurs rendement
-    performances = sorted(performances, key=lambda share: share.performance,  reverse=True)
-    # Ici on stock la performance maximum et la liste des actions qui correspondent
-    max_performance = 0
-    max_spent_amount = 0
-    max_result = None
-    i = 0
-    while i < len(performances):
-        if performances[i].price < 0: #Skip prix négatifs
-            i += 1
-            continue
-        amount = max_amount - performances[i].price
-        j = 0
-        result = [performances[i]]
-        performance = performances[i].performance
-        while j < len(performances):
-            if i == j:
-                j += 1
-                continue
-            # Ici on verifie qu'il reste de l'argent à placer
-            if amount >= performances[j].price and performances[j].price > 0: # Verification du dataset (valeurs Négatives)
-                result.append(performances[j])
-                amount -= performances[j].price
-                performance += performances[j].performance
-            j += 1
-        # On sauvegarde la performance maximale si besoin
-        if performance > max_performance:
-            max_result = list(result)
-            max_performance = performance
-            max_spent_amount = amount
-        i += 1
-    end = time.time()
+
+    # Écarte les mauvaises lignes
+    shares = list(filter(lambda share: share.price > 0, shares))
+
+    # Ici on trie les actions de la moins performante à la moins performante.
+    sorted_shares = sorted(shares, key=lambda share: share.performance/share.price, reverse=True)
+    max_performance, best_shares = greedy_algorithm(max_amount, sorted_shares)
+    print(f"Performance maximale {max_performance}")
     # on imprime les résultats
     print(f"\nAvec {max_amount} euros d'investissement, vous pouvez maximiser votre randement en achetant : \n" )
-    for share in max_result:
+    for share in best_shares:
         print(f"> 1 action -{share.name}- à {share.price} euros à {share.rate} % sur 2 ans (Performance = {share.performance} euros)")
     print(f"\n> Performance totale : {round(max_performance, 2)} euros\n")
-    print(f"Total dépensé {max_amount - max_spent_amount} euros \n")
+    # print(f"Total dépensé {max_amount - max_spent_amount} euros \n")
+    
+    end = time.time()
     print(f"> Temps d'éxecution du programme : {end-start} secondes \n")
 
 # Lancement du programme avec nom du fichier.py choixdudataset.csv et montant choisi
@@ -77,15 +99,14 @@ def main(args):
         print(f"usage : {args[0]} csv_file max_amount", file=sys.stderr)
         raise SystemExit(-1)   
     csv_filename, max_amount, *_ = args[1:]
-    print("_________________________________________________________________________________________________________\n")
-    print(f"Calcul du rendement sur le dataset : {csv_filename} avec un montant investi de : {max_amount} euros\n")
+    print()
+    print(f"Calcul du rendement sur le dataset : {csv_filename} avec un montant investi de : {max_amount} euros")
     shares = read_csv_file(csv_filename)
     get_max_performance(shares, int(max_amount))
 
 if __name__ == "__main__":
     main(sys.argv)
     
-
 
     
     
